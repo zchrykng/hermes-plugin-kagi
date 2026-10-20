@@ -11,7 +11,7 @@ import unittest
 from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(Path(os.environ.get("HERMES_SOURCE", "/Users/zach/.hermes/hermes-agent"))))
+sys.path.insert(0, str(Path(os.environ.get("HERMES_SOURCE", str(Path.home() / ".hermes" / "hermes-agent")))))
 
 
 @unittest.skipIf(sys.version_info < (3, 10), "Real Hermes loader requires Python >=3.10; use Hermes runtime")

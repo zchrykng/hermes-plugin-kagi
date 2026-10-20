@@ -74,17 +74,50 @@ To roll back, restore the prior `web.search_backend` value. If the setting was p
 
 ## Run offline tests
 
-Use a Hermes-compatible Python with the installed Hermes dependencies. Set `HERMES_SOURCE` to your Hermes source checkout. Run from this repository with a disposable `HERMES_HOME`: the credential-isolation test assumes an empty profile.
+Use Python 3.14 and a real Hermes source checkout. CI pins upstream to
+[`d923a5eb487a17c0a68801bba9ef0f56c81040a8`](https://github.com/NousResearch/hermes-agent/commit/d923a5eb487a17c0a68801bba9ef0f56c81040a8).
+Keep that checkout **outside this repository** so recursive plugin discovery sees only Kagi.
+`HERMES_SOURCE` selects the checkout; the default is `$HOME/.hermes/hermes-agent`.
+Do not modify your installed Hermes environment to run these tests.
+
+From this repository, using an existing checkout at that commit:
 
 ```sh
 SCRATCH="${TMPDIR:-$HOME/.hermes/cache/scratch}"
 mkdir -p "$SCRATCH"
-TEST_HOME=$(mktemp -d "$SCRATCH/kagi-test.XXXXXX")
-HERMES_HOME="$TEST_HOME" HERMES_SOURCE=/path/to/hermes-agent \
-  /path/to/hermes-python -m unittest discover -s tests -v
+TEST_ROOT=$(mktemp -d "$SCRATCH/kagi-test.XXXXXX")
+mkdir -p "$TEST_ROOT/home" "$TEST_ROOT/tmp"
+unset PYTHONPATH PYTHONHOME  # avoid borrowing an installed runtime's dependencies
+python3.14 -m venv "$TEST_ROOT/venv"
+"$TEST_ROOT/venv/bin/python" -m pip install -r requirements-ci.txt
+export HERMES_HOME="$TEST_ROOT/home" TMPDIR="$TEST_ROOT/tmp"
+export HERMES_SOURCE=/path/to/hermes-agent
+"$TEST_ROOT/venv/bin/python" -m compileall -q kagi tests scripts
+git diff --check
+"$TEST_ROOT/venv/bin/python" scripts/run_tests.py
 ```
 
-Tests cover the HTTP boundary, argument validation, errors, redirects, profile secrets, and actual Hermes plugin discovery/registration/unload. HTTP responses are controlled fixtures, not actual Kagi output. Older Python runtimes may skip loader integration tests; use Hermes's own runtime for the full suite. No CI workflow is configured yet.
+The isolated home must be empty initially. Only a pinned YAML parser is needed for
+these real Hermes loader/config imports; the full production extras are not installed.
+Tests cover the HTTP boundary, argument validation, errors, redirects, profile secrets,
+and actual Hermes plugin discovery/registration/unload. HTTP responses are controlled
+fixtures, not actual Kagi output. The runner fails on test errors, failures, **any skip**,
+or zero discovered tests. Its own subprocess regression tests cover those conditions.
+
+## CI
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the same checks on Ubuntu
+with Python 3.14 for pushes to `main` and `master`, pull requests targeting any branch,
+and manual dispatch. The single stable check name is **`CI`**; syntax, whitespace,
+dependency setup, and every offline test must succeed for it to pass. Require `CI` in
+the GitHub rulesets protecting `main`/`master` to make it a merge gate; the workflow
+alone does not configure branch protection.
+
+Actions and the real upstream Hermes checkout are pinned to immutable commits.
+The workflow uses a read-only repository token with checkout credential persistence
+disabled, no secrets, no paid API calls, and no `pull_request_target` trigger.
+Hermes state and temporary files live under `RUNNER_TEMP`. Local verification is
+separate from a hosted Actions run; this documentation does not assert hosted success.
 
 ## Project layout
 
