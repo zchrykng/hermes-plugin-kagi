@@ -20,8 +20,6 @@ jobs:
         working-directory: plugin
     env:
       HERMES_SOURCE: ${{ github.workspace }}/hermes-source
-      HERMES_HOME: ${{ runner.temp }}/kagi-hermes-home
-      TMPDIR: ${{ runner.temp }}/kagi-tmp
       PYTHONPATH: ''
       PYTHONNOUSERSITE: '1'
     steps:
@@ -44,7 +42,8 @@ jobs:
           python-version: '3.14'
       - name: Prepare isolated test environment
         run: |
-          mkdir -p "$HERMES_HOME" "$TMPDIR"
+          mkdir -p "$RUNNER_TEMP/kagi-hermes-home" "$RUNNER_TEMP/kagi-tmp"
+          printf '%s\n' "HERMES_HOME=$RUNNER_TEMP/kagi-hermes-home" "TMPDIR=$RUNNER_TEMP/kagi-tmp" >> "$GITHUB_ENV"
           python -m venv "$RUNNER_TEMP/kagi-venv"
           "$RUNNER_TEMP/kagi-venv/bin/python" -m pip install --disable-pip-version-check -r requirements-ci.txt
       - name: Syntax and whitespace checks
