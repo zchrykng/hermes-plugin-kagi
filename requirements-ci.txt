@@ -1,0 +1,3 @@
+# Only the YAML parser is needed by the pinned real Hermes loader/config imports.
+# Do not install Hermes production extras: these offline tests make no API calls.
+ruamel.yaml==0.19.1

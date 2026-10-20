@@ -8,7 +8,7 @@ import sys
 import unittest
 from unittest.mock import patch
 
-HERMES_SOURCE = Path(os.environ.get("HERMES_SOURCE", "/Users/zach/.hermes/hermes-agent"))
+HERMES_SOURCE = Path(os.environ.get("HERMES_SOURCE", str(Path.home() / ".hermes" / "hermes-agent")))
 sys.path.insert(0, str(HERMES_SOURCE))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agent.web_search_provider import WebSearchProvider
