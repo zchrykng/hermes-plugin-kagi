@@ -2,7 +2,7 @@
 
 A Hermes plugin for Kagi's useful API capabilities. Plugin name and provider ID: `kagi`.
 
-**Implemented:** native web search through Kagi's v1 API. **Planned:** extraction, specialized search, enrichment, summarization, FastGPT, and Small Web discovery. See [PROJECT.md](PROJECT.md) for the roadmap.
+**Implemented:** native web search through Kagi's v1 API. **Planned:** extraction, specialized search, enrichment, summarization, FastGPT, and Small Web discovery. The [GitHub roadmap](https://github.com/zchrykng/hermes-plugin-kagi/issues/4) and its linked issues/milestones are the source of truth for future development. [PROJECT.md](PROJECT.md) records stable architecture and project decisions, not a separate live backlog.
 
 This is an independent integration, not an official Kagi or Nous Research plugin.
 
@@ -153,7 +153,7 @@ separate from a hosted Actions run; this documentation does not assert hosted su
 - `plugin.yaml`, `__init__.py`, `provider.py` — root backend distribution and entry point.
 - `LICENSE`, `README.md` — distribution license and setup documentation.
 - `tests/` — offline provider and loader tests.
-- `PROJECT.md` — architecture, scope, and follow-up milestones.
+- `PROJECT.md` — stable architecture, approved decisions, and links to the GitHub roadmap.
 
 ## Alternative
 

@@ -4,6 +4,9 @@
 > licensing, and root packaging findings have since been addressed in the working
 > candidate. This document retains the original findings; it is not a claim that
 > managed installation, active-copy migration, or catalogue submission is complete.
+>
+> Open follow-ups are now tracked in the [canonical GitHub roadmap](https://github.com/zchrykng/hermes-plugin-kagi/issues/4).
+> Use those issues and milestones for current scope and status, not this historical checklist.
 
 ## Scope and verdict
 
