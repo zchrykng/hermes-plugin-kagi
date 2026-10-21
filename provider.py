@@ -5,7 +5,8 @@ from http.client import HTTPException
 import json
 import urllib.request
 
-from agent.web_search_provider import WebSearchProvider, get_provider_env
+from agent.secret_scope import get_secret
+from agent.web_search_provider import WebSearchProvider
 
 
 class _NoRedirect(urllib.request.HTTPRedirectHandler):
@@ -22,7 +23,7 @@ class KagiWebSearchProvider(WebSearchProvider):
     def get_setup_schema(self) -> dict:
         return {"name": self.display_name, "badge": "", "tag": "Paid search API",
                 "env_vars": [{"key": "KAGI_API_KEY", "prompt": "Kagi API key",
-                              "url": "https://kagi.com/settings?p=api"}]}
+                              "url": "https://kagi.com/api/keys"}]}
 
     def search(self, query: str, limit: int = 5) -> dict:
         if not isinstance(query, str) or not query.strip():
@@ -30,7 +31,7 @@ class KagiWebSearchProvider(WebSearchProvider):
         if type(limit) is not int or not 1 <= limit <= 1024:
             return {"success": False, "error": "Kagi limit must be an integer from 1 to 1024."}
         try:
-            key = get_provider_env("KAGI_API_KEY")
+            key = (get_secret("KAGI_API_KEY") or "").strip()
         except Exception:
             return {"success": False, "error": "Kagi credentials unavailable in this profile."}
         if not key:
@@ -76,6 +77,6 @@ class KagiWebSearchProvider(WebSearchProvider):
 
     def is_available(self) -> bool:
         try:
-            return bool(get_provider_env("KAGI_API_KEY"))
+            return bool((get_secret("KAGI_API_KEY") or "").strip())
         except Exception:
             return False

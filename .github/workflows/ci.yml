@@ -48,7 +48,7 @@ jobs:
           "$RUNNER_TEMP/kagi-venv/bin/python" -m pip install --disable-pip-version-check -r requirements-ci.txt
       - name: Syntax and whitespace checks
         run: |
-          "$RUNNER_TEMP/kagi-venv/bin/python" -m compileall -q kagi tests scripts
+          "$RUNNER_TEMP/kagi-venv/bin/python" -m compileall -q provider.py __init__.py tests scripts
           git diff --check
       - name: Run every offline test (no skips)
         run: '"$RUNNER_TEMP/kagi-venv/bin/python" scripts/run_tests.py'
