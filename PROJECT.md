@@ -4,10 +4,9 @@
 A single Hermes plugin named `kagi` covering Kagi's documented API functionality wherever it has a useful, safe Hermes integration. Keep ordinary search and extraction on Hermes's native tools; expose specialized capabilities as explicit Kagi tools rather than distorting the native contracts. No Hermes core fork and no instruction-only routing.
 
 ## Identity and compatibility
-- Plugin manifest name: `kagi` (formerly `web-kagi`).
+- Plugin manifest name: `kagi`.
 - Provider ID and managed install/discovery key: `kagi`.
 - Distribution: repository-root `plugin.yaml`, `__init__.py`, `provider.py`, `LICENSE`, and `README.md`; no catalog `subdir`. Relative entry-point imports work independently of checkout basename.
-- Legacy manual copies use `web/kagi`. Root packaging does not migrate active copies or their enabled-plugin configuration. Migration requires separate approval, backup outside the scanned plugins tree, disabled candidate review, and rollback; see README.
 - Keep existing checkout directories stable for desktop/project links; the public repository is `hermes-plugin-kagi` and the plugin product is Kagi.
 - Keep `web.search_backend: kagi` working throughout expansion.
 
