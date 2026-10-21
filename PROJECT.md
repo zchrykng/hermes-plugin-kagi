@@ -5,8 +5,9 @@ A single Hermes plugin named `kagi` covering Kagi's documented API functionality
 
 ## Identity and compatibility
 - Plugin manifest name: `kagi` (formerly `web-kagi`).
-- Provider ID and Python package: `kagi`.
-- Existing install/discovery key: `web/kagi`; retain it so the enabled-plugin configuration remains valid. This is a loader namespace/path, not the public plugin name.
+- Provider ID and managed install/discovery key: `kagi`.
+- Distribution: repository-root `plugin.yaml`, `__init__.py`, `provider.py`, `LICENSE`, and `README.md`; no catalog `subdir`. Relative entry-point imports work independently of checkout basename.
+- Legacy manual copies use `web/kagi`. Root packaging does not migrate active copies or their enabled-plugin configuration. Migration requires separate approval, backup outside the scanned plugins tree, disabled candidate review, and rollback; see README.
 - Keep existing checkout directories stable for desktop/project links; the public repository is `hermes-plugin-kagi` and the plugin product is Kagi.
 - Keep `web.search_backend: kagi` working throughout expansion.
 
@@ -40,7 +41,7 @@ Tool names are design proposals, not registered commands yet. Reconfirm supporte
 
 ## Milestones and acceptance gates
 ### 1. Identity and scope
-Rename source and installed manifests to `kagi`, add a regression assertion, and expand the roadmap. Preserve current install path/configuration. No gateway restart required as part of the edit; in-memory metadata may retain its old label until reload.
+Source manifest identity is `kagi`; root distribution and installed-layout loader regression tests are in place. Preserve existing active installations and settings unless migration is separately approved. No gateway restart is part of this source edit; in-memory metadata may retain its old label until reload.
 
 ### 2. Native extraction and client foundation
 Implement v1 extraction with offline test-first slices and actual Hermes loader/dispatcher checks. Cover batch limits, partial failures, URL mapping, timeouts, malformed responses, and content budgets. Do not label it implemented until the standard tool route is exercised. Run an explicitly approved live extraction test before recommending activation.

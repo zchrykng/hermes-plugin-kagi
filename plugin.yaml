@@ -1,0 +1,19 @@
+name: kagi
+version: "0.1.0"
+description: "Paid Kagi search API backend; search only, no extraction or automatic retries."
+author: Zachary King
+homepage: https://github.com/zchrykng/hermes-plugin-kagi
+license: MIT
+tags:
+  - web
+  - kagi
+  - search
+requires_hermes: ">=0.22.2"
+requires_env:
+  - name: KAGI_API_KEY
+    description: Kagi API key with paid search access
+    secret: true
+    url: https://kagi.com/api/keys
+kind: backend
+provides_web_providers:
+  - kagi

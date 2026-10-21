@@ -9,16 +9,37 @@ This is an independent integration, not an official Kagi or Nous Research plugin
 ## Features
 
 - Powers Hermes's standard `web_search` tool.
-- Profile-aware `KAGI_API_KEY` lookup through Hermes's credential helper.
+- Scoped `KAGI_API_KEY` lookup directly through `agent.secret_scope.get_secret`.
+  The plugin never loads `.env` files or implements an environment fallback;
+  Hermes supplies the active profile's secret scope (or the process environment
+  in ordinary single-profile use). Missing served-profile keys and unscoped multiplex
+  calls fail closed without HTTP.
 - Input validation, a 30-second request timeout, sanitized errors, and redirect blocking.
 - No automatic retries, pagination, extraction, or provider fallback inside the plugin.
 - Safe search explicitly enabled in this initial version.
 
 Kagi API access/billing must be configured separately; do not assume a regular search subscription includes API usage. Check [API pricing](https://kagi.com/api/pricing).
 
+## Security and data disclosure
+
+Search sends the requested query and search options to `https://kagi.com/api/v1/search`,
+authenticated with the active profile's Kagi API key. Kagi receives this data and
+may charge for the request under its API terms. Review Kagi's privacy policy before
+sending sensitive queries.
+
+The plugin does not persist API keys, search history, or responses; read credential
+files directly; launch shell commands; run background processes; or send its own
+telemetry. Hermes itself may retain tool calls and responses in session history or
+logs according to its configuration. The plugin runs in the Hermes process with
+the normal trust and permissions of an enabled Python plugin, not in a sandbox.
+
+## License
+
+MIT; see [LICENSE](LICENSE).
+
 ## Requirements
 
-- A Hermes installation providing `WebSearchProvider`, `get_provider_env`, and namespaced user backend discovery.
+- Hermes >=0.22.2 providing `WebSearchProvider`, `agent.secret_scope.get_secret`, and directory-plugin backend discovery.
 - A Kagi API key with search access and available API credit.
 - The provider uses Python's standard library; no additional HTTP SDK is required.
 
@@ -26,27 +47,34 @@ Hermes's plugin interfaces evolve. Offline tests exercise the real installed pro
 
 ## Install
 
-Clone this repository and enter it:
+Use the intended Hermes profile. Review any existing installation before replacing it:
 
 ```sh
-git clone https://github.com/zchrykng/hermes-plugin-kagi.git
-cd hermes-plugin-kagi
+hermes plugins install zchrykng/hermes-plugin-kagi --no-enable
+hermes plugins show kagi
+hermes plugins enable kagi
 ```
 
-Install into the intended profile's Hermes home. Do not overwrite an existing installation without reviewing its contents:
+The repository root is the distributable plugin: no subdirectory argument or
+catalog `subdir` is needed. The managed loader key, manifest name, and provider ID
+are all `kagi`; the checkout directory name does not define the plugin identity.
+For a reproducible custom-Git install or update, add `--ref FULL_40_CHARACTER_COMMIT_SHA`
+using a reviewed immutable commit. Custom-Git installs are not a reviewed catalog
+listing; do not assume catalog approval or automatic updates.
 
-```sh
-PLUGIN_HOME="${HERMES_HOME:-$HOME/.hermes}/plugins/web"
-if [ -e "$PLUGIN_HOME/kagi" ]; then
-  printf 'Kagi plugin already exists; review it before updating.\n'
-else
-  mkdir -p "$PLUGIN_HOME"
-  cp -R kagi "$PLUGIN_HOME/kagi"
-fi
-hermes plugins enable web/kagi
-```
+### Legacy manual installation (`web/kagi`)
 
-The loader identity is `web/kagi`; the plugin manifest name and provider ID are `kagi`. The loader identity is a stable installation namespace, not the public plugin name.
+The root packaging change does **not** migrate an active installation. Before a
+separately approved migration, inspect and preserve its local changes and record
+the prior backend setting. Disable `web/kagi` and move its backup **outside the
+entire Hermes plugins directory**, not to another folder inside it: recursive
+discovery could load both copies. Install the managed candidate disabled, review
+`hermes plugins show kagi` and its provenance, then enable `kagi` and reload through
+your usual controls. Confirm only one Kagi provider registration. The backend ID
+remains `kagi`; no backend setting change is needed if already selected.
+For rollback, disable the new `kagi`, remove it from the scanned plugins tree,
+restore the legacy copy and enable `web/kagi`, then reload. These are manual
+instructions, not actions performed by this repository or its tests.
 
 Store `KAGI_API_KEY` in the selected profile's secret storage (`.env`), not `config.yaml`, source files, shell history, or chat. Get an API key at https://kagi.com/api/keys.
 
@@ -55,7 +83,7 @@ Record the previous search backend for rollback, then select Kagi:
 ```sh
 hermes config get web.search_backend
 hermes config set web.search_backend kagi
-hermes plugins show web/kagi
+hermes plugins show kagi
 ```
 
 Leave `web.extract_backend` on your current extraction provider. Restart your Hermes gateway through its usual controls and open a new chat so it discovers the plugin.
@@ -70,13 +98,14 @@ A live test may incur a charge. Ask Hermes:
 
 Confirm the runtime log contains `Web search via kagi` for that call. Check Kagi's API dashboard for independent usage confirmation. Results alone do not establish which backend served a request. Hermes may apply wrapper-level caching/fallback behavior independently of this plugin's single-attempt policy.
 
-To roll back, restore the prior `web.search_backend` value. If the setting was previously absent, use `hermes config unset web.search_backend`. Disable the plugin with `hermes plugins disable web/kagi` and reload the gateway.
+To roll back, restore the prior `web.search_backend` value. If the setting was previously absent, use `hermes config unset web.search_backend`. Disable the plugin with `hermes plugins disable kagi` and reload the gateway.
 
 ## Run offline tests
 
 Use Python 3.14 and a real Hermes source checkout. CI pins upstream to
 [`d923a5eb487a17c0a68801bba9ef0f56c81040a8`](https://github.com/NousResearch/hermes-agent/commit/d923a5eb487a17c0a68801bba9ef0f56c81040a8).
-Keep that checkout **outside this repository** so recursive plugin discovery sees only Kagi.
+Keep that checkout **outside this repository** to avoid bundling Hermes source
+with the root plugin distribution. Discovery tests scan only a disposable plugins tree.
 `HERMES_SOURCE` selects the checkout; the default is `$HOME/.hermes/hermes-agent`.
 Do not modify your installed Hermes environment to run these tests.
 
@@ -92,7 +121,7 @@ python3.14 -m venv "$TEST_ROOT/venv"
 "$TEST_ROOT/venv/bin/python" -m pip install -r requirements-ci.txt
 export HERMES_HOME="$TEST_ROOT/home" TMPDIR="$TEST_ROOT/tmp"
 export HERMES_SOURCE=/path/to/hermes-agent
-"$TEST_ROOT/venv/bin/python" -m compileall -q kagi tests scripts
+"$TEST_ROOT/venv/bin/python" -m compileall -q provider.py __init__.py tests scripts
 git diff --check
 "$TEST_ROOT/venv/bin/python" scripts/run_tests.py
 ```
@@ -121,7 +150,8 @@ separate from a hosted Actions run; this documentation does not assert hosted su
 
 ## Project layout
 
-- `kagi/` — backend manifest, registration entry point, and provider.
+- `plugin.yaml`, `__init__.py`, `provider.py` — root backend distribution and entry point.
+- `LICENSE`, `README.md` — distribution license and setup documentation.
 - `tests/` — offline provider and loader tests.
 - `PROJECT.md` — architecture, scope, and follow-up milestones.
 

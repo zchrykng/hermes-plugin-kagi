@@ -1,5 +1,4 @@
 """Offline contract tests against the installed Hermes ABC (no Kagi calls)."""
-import importlib
 import io
 import json
 import os
@@ -13,21 +12,28 @@ sys.path.insert(0, str(HERMES_SOURCE))
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from agent.web_search_provider import WebSearchProvider
 
-try:
-    from kagi.provider import KagiWebSearchProvider
-except ModuleNotFoundError:
-    KagiWebSearchProvider = None
+from plugin_under_test import KagiWebSearchProvider, package
 
 
 class ProviderTests(unittest.TestCase):
     def test_availability_uses_profile_safe_lookup_without_http(self):
-        with patch("kagi.provider.get_provider_env", return_value="test-key") as lookup:
+        with patch("hermes_test_kagi.provider.get_secret", return_value="test-key") as lookup:
             self.assertTrue(KagiWebSearchProvider().is_available())
             lookup.assert_called_once_with("KAGI_API_KEY")
-        with patch("kagi.provider.get_provider_env", return_value=""):
+        with patch("hermes_test_kagi.provider.get_secret", return_value=""):
             self.assertFalse(KagiWebSearchProvider().is_available())
-        with patch("kagi.provider.get_provider_env", side_effect=RuntimeError("scope denied")):
+        with patch("hermes_test_kagi.provider.get_secret", side_effect=RuntimeError("scope denied")):
             self.assertFalse(KagiWebSearchProvider().is_available())
+
+    def test_blank_scoped_keys_are_unavailable(self):
+        for key in (None, "", " \t\n"):
+            with self.subTest(key=key), patch("hermes_test_kagi.provider.get_secret", return_value=key), patch(
+                "urllib.request.build_opener"
+            ) as build:
+                provider = KagiWebSearchProvider()
+                self.assertFalse(provider.is_available())
+                self.assertFalse(provider.search("hello")["success"])
+                build.assert_not_called()
 
     def test_search_posts_bearer_json_and_normalizes_results(self):
         from unittest.mock import MagicMock
@@ -36,7 +42,7 @@ class ProviderTests(unittest.TestCase):
         ]}}).encode())
         opener = MagicMock()
         opener.open.return_value = response
-        with patch("kagi.provider.get_provider_env", return_value="test-key"), patch(
+        with patch("hermes_test_kagi.provider.get_secret", return_value="test-key"), patch(
             "urllib.request.build_opener", return_value=opener
         ):
             result = KagiWebSearchProvider().search("a query", limit=1)
@@ -56,7 +62,7 @@ class ProviderTests(unittest.TestCase):
     def test_invalid_input_is_rejected_before_credentials_or_http(self):
         for query, limit in [("", 5), ("  ", 5), (None, 5), (123, 5), ("ok", 0),
                              ("ok", 1025), ("ok", True), ("ok", 1.5), ("ok", "5")]:
-            with self.subTest(query=query, limit=limit), patch("kagi.provider.get_provider_env") as lookup, patch("urllib.request.build_opener") as build:
+            with self.subTest(query=query, limit=limit), patch("hermes_test_kagi.provider.get_secret") as lookup, patch("urllib.request.build_opener") as build:
                 result = KagiWebSearchProvider().search(query, limit)
                 self.assertFalse(result["success"])
                 self.assertIsInstance(result["error"], str)
@@ -65,7 +71,7 @@ class ProviderTests(unittest.TestCase):
 
     def test_missing_or_inaccessible_credentials_never_send_http(self):
         for options in [{"return_value": ""}, {"side_effect": RuntimeError("secret-key")}]:
-            with self.subTest(options=options), patch("kagi.provider.get_provider_env", **options), patch("urllib.request.build_opener") as build:
+            with self.subTest(options=options), patch("hermes_test_kagi.provider.get_secret", **options), patch("urllib.request.build_opener") as build:
                 result = KagiWebSearchProvider().search("hello")
                 self.assertFalse(result["success"])
                 self.assertNotIn("secret-key", result["error"])
@@ -82,7 +88,7 @@ class ProviderTests(unittest.TestCase):
             with self.subTest(error=error):
                 opener = MagicMock()
                 opener.open.side_effect = error
-                with patch("kagi.provider.get_provider_env", return_value="secret-key"), patch("urllib.request.build_opener", return_value=opener):
+                with patch("hermes_test_kagi.provider.get_secret", return_value="secret-key"), patch("urllib.request.build_opener", return_value=opener):
                     result = KagiWebSearchProvider().search("hello")
                 self.assertFalse(result["success"])
                 self.assertIn(expected, result["error"])
@@ -103,7 +109,7 @@ class ProviderTests(unittest.TestCase):
         response = IncompleteResponse()
         opener = MagicMock()
         opener.open.return_value = response
-        with patch("kagi.provider.get_provider_env", return_value="secret-key"), patch(
+        with patch("hermes_test_kagi.provider.get_secret", return_value="secret-key"), patch(
             "urllib.request.build_opener", return_value=opener
         ):
             result = KagiWebSearchProvider().search("hello")
@@ -134,7 +140,7 @@ class ProviderTests(unittest.TestCase):
 
         transport = RedirectTransport()
         real_builder = urllib.request.build_opener
-        with patch("kagi.provider.get_provider_env", return_value="secret-key"), patch(
+        with patch("hermes_test_kagi.provider.get_secret", return_value="secret-key"), patch(
             "urllib.request.build_opener", side_effect=lambda *handlers: real_builder(transport, *handlers)
         ):
             result = KagiWebSearchProvider().search("hello")
@@ -151,7 +157,7 @@ class ProviderTests(unittest.TestCase):
             with self.subTest(rows=rows):
                 opener = MagicMock()
                 opener.open.return_value = io.BytesIO(json.dumps({"data": {"search": rows}}).encode())
-                with patch("kagi.provider.get_provider_env", return_value="test-key"), patch("urllib.request.build_opener", return_value=opener):
+                with patch("hermes_test_kagi.provider.get_secret", return_value="test-key"), patch("urllib.request.build_opener", return_value=opener):
                     self.assertEqual(KagiWebSearchProvider().search("hello", limit),
                                      {"success": True, "data": {"web": expected}})
 
@@ -168,7 +174,7 @@ class ProviderTests(unittest.TestCase):
             with self.subTest(body=body):
                 opener = MagicMock()
                 opener.open.return_value = io.BytesIO(body)
-                with patch("kagi.provider.get_provider_env", return_value="secret-key"), patch("urllib.request.build_opener", return_value=opener):
+                with patch("hermes_test_kagi.provider.get_secret", return_value="secret-key"), patch("urllib.request.build_opener", return_value=opener):
                     result = KagiWebSearchProvider().search("hello")
                 self.assertFalse(result["success"])
                 self.assertIsInstance(result["error"], str)
@@ -181,20 +187,19 @@ class ProviderTests(unittest.TestCase):
             with self.subTest(envelope=envelope):
                 opener = MagicMock()
                 opener.open.return_value = io.BytesIO(json.dumps(dict(envelope, data={"search": []})).encode())
-                with patch("kagi.provider.get_provider_env", return_value="secret-key"), patch("urllib.request.build_opener", return_value=opener):
+                with patch("hermes_test_kagi.provider.get_secret", return_value="secret-key"), patch("urllib.request.build_opener", return_value=opener):
                     result = KagiWebSearchProvider().search("hello")
                 self.assertFalse(result["success"])
                 self.assertNotIn("secret-key", result["error"])
 
     def test_package_registers_search_provider_and_declares_manifest(self):
         from unittest.mock import MagicMock
-        package = importlib.import_module("kagi")
         self.assertTrue(callable(getattr(package, "register", None)), "register(ctx) missing")
         ctx = MagicMock()
         package.register(ctx)
         ctx.register_web_search_provider.assert_called_once()
         self.assertIsInstance(ctx.register_web_search_provider.call_args.args[0], WebSearchProvider)
-        manifest = (Path(__file__).resolve().parents[1] / "kagi" / "plugin.yaml").read_text()
+        manifest = (Path(__file__).resolve().parents[1] / "plugin.yaml").read_text()
         self.assertEqual(manifest.splitlines()[0], "name: kagi")
         self.assertIn("kind: backend", manifest)
         self.assertIn("provides_web_providers:", manifest)
@@ -206,6 +211,7 @@ class ProviderTests(unittest.TestCase):
         schema = provider.get_setup_schema()
         self.assertEqual(schema["name"], "Kagi")
         self.assertEqual(schema["env_vars"][0]["key"], "KAGI_API_KEY")
+        self.assertEqual(schema["env_vars"][0]["url"], "https://kagi.com/api/keys")
         self.assertIn("paid", schema["tag"].lower())
 
     def test_real_hermes_search_only_identity(self):
