@@ -1,79 +1,87 @@
-# Kagi
+# Kagi: architecture and project decisions
 
-## Goal
-A single Hermes plugin named `kagi` covering Kagi's documented API functionality wherever it has a useful, safe Hermes integration. Keep ordinary search and extraction on Hermes's native tools; expose specialized capabilities as explicit Kagi tools rather than distorting the native contracts. No Hermes core fork and no instruction-only routing.
+## Development source of truth
 
-## Identity and compatibility
-- Plugin manifest name: `kagi` (formerly `web-kagi`).
-- Provider ID and managed install/discovery key: `kagi`.
-- Distribution: repository-root `plugin.yaml`, `__init__.py`, `provider.py`, `LICENSE`, and `README.md`; no catalog `subdir`. Relative entry-point imports work independently of checkout basename.
-- Legacy manual copies use `web/kagi`. Root packaging does not migrate active copies or their enabled-plugin configuration. Migration requires separate approval, backup outside the scanned plugins tree, disabled candidate review, and rollback; see README.
-- Keep existing checkout directories stable for desktop/project links; the public repository is `hermes-plugin-kagi` and the plugin product is Kagi.
-- Keep `web.search_backend: kagi` working throughout expansion.
+**GitHub issues and milestones are the authoritative roadmap.** Start with
+[roadmap #4](https://github.com/zchrykng/hermes-plugin-kagi/issues/4), then read
+the relevant work issue, its dependencies and acceptance criteria.
 
-## Current implementation and evidence
-Search-only v1 backend implemented. Offline tests exercise the actual Hermes loader and profile-secret isolation. A development installation has completed a live search with runtime logs explicitly recording `Web search via kagi` and successful tool completion. This is routing evidence, not a billing audit. Search is the only implemented capability; everything below is planned.
+- [Search-only catalogue readiness](https://github.com/zchrykng/hermes-plugin-kagi/milestone/1)
+- [Native extraction and full search](https://github.com/zchrykng/hermes-plugin-kagi/milestone/2)
+- [Additional Kagi APIs](https://github.com/zchrykng/hermes-plugin-kagi/milestone/3)
+- [All work issues](https://github.com/zchrykng/hermes-plugin-kagi/issues)
 
-## API inventory and proposed Hermes mapping
-The current v1 OpenAPI bundle advertises only POST `/search` and POST `/extract`. Kagi's broader API portal separately documents Enrichment, Universal Summarizer, FastGPT, and the free Small Web feed. Do not mistake the OpenAPI bundle for the complete API inventory. The additional products' docs currently show v0 endpoints and Bot auth; verify each product's current auth, availability, and account entitlement independently before implementation. Do not apply v1 Bearer auth blindly to older products.
+Milestones are planning groups, not delivery-date promises. Update scope, priorities,
+dependencies, decisions and completion status on GitHub first. Link implementation
+PRs to their issues; close work only after its acceptance criteria are verified.
+Do not maintain a second mutable roadmap here. `AUDIT.md` is historical evidence;
+its unresolved follow-ups now have GitHub issues. `README.md` describes shipped behavior.
 
-| Capability | Hermes surface | Scope and constraints | Priority |
-| --- | --- | --- | --- |
-| General web search | Existing `web_search` backend | Preserve the working contract and default route | Implemented |
-| Page extraction | Existing `web_extract` backend | v1 batch URL-to-markdown; per-URL errors, stable input mapping, standard content budget and timeout integration | Next |
-| Specialized search | Proposed `kagi_search` tool, same client | Images, videos, news, podcasts; preserve workflow-specific result groups and metadata | Next |
-| Advanced search controls | Proposed `kagi_search` parameters plus documented plugin defaults | Saved/inline lenses, include/exclude sites and keywords, file type, region, dates, safe search, supported personalization; validate combinations and precedence | Next |
-| Pagination and search-plus-extract | Explicit `kagi_search` options | Page selection, result limits, extraction count and timeout; disclose extra cost and never auto-fetch all pages | Next |
-| Enrichment | Proposed `kagi_enrich` tool | Teclis web and TinyGem news; clearly labeled niche indexes, not substitutes for general search | Later |
-| Universal Summarizer | Proposed `kagi_summarize` tool | URL or supplied text, paragraph/takeaway output, supported engines and target language, explicit cache/privacy controls | Later |
-| FastGPT | Proposed `kagi_answer` tool | Search-grounded generated answer with references; distinguish generated output from source excerpts and index results | Later |
-| Small Web feed | Proposed `kagi_smallweb` tool | Free bounded RSS discovery; dates, links, deduplication and safe XML parsing; no credential header on public feed | Later |
+## Product goal
 
-Tool names are design proposals, not registered commands yet. Reconfirm supported enum values and parameter limits from each source before writing schemas. Preserve useful response metadata such as dates, image URLs and citations; do not flatten specialized responses into misleading general web results. Start with JSON output; evaluate experimental API Markdown output only if it adds value over stable structured results.
+One plugin named `kagi` for useful functionality exposed by Kagi's documented APIs.
+Ordinary search and extraction use native Hermes provider surfaces; specialized
+operations use explicit, accurately declared optional tools. Do not distort native
+contracts, rely on instruction-only routing, or fork/patch Hermes core.
 
-## Architecture
-1. A shared internal HTTP/client layer for timeouts, redaction, bounded payloads, trace IDs and structured errors. Keep auth/version routing product-specific.
-2. A native `WebSearchProvider` adapter for generic search and, once implemented, extraction.
-3. Explicit plugin tools for capabilities the generic `web_search(query, limit)` and `web_extract(urls, ...)` contracts cannot express.
-4. Read-only availability gates and profile-aware credential lookup. No launch-profile key fallback when serving another profile.
-5. Optional feature gates for specialized tools; implementing extraction must not automatically switch the user's `web.extract_backend`.
-6. Keep the backend plugin manifest while investigating and testing mixed provider/tool registration through the actual Hermes loader. If the loader restricts backend plugins, resolve the packaging design before adding tools, while preserving one public product identity.
+## Identity and distribution
 
-## Milestones and acceptance gates
-### 1. Identity and scope
-Source manifest identity is `kagi`; root distribution and installed-layout loader regression tests are in place. Preserve existing active installations and settings unless migration is separately approved. No gateway restart is part of this source edit; in-memory metadata may retain its old label until reload.
+- Plugin manifest name, provider ID and managed installation key: `kagi`.
+- Repository: https://github.com/zchrykng/hermes-plugin-kagi.
+- Root distribution: `plugin.yaml`, `__init__.py`, `provider.py`, `LICENSE`, `README.md`.
+  No catalogue subdirectory; imports must work independently of checkout basename.
+- Legacy copies use `web/kagi`. Migration preserves settings/local changes, avoids
+  duplicate registration, backs up outside the scanned plugins tree and retains
+  rollback. Execution is tracked in [#9](https://github.com/zchrykng/hermes-plugin-kagi/issues/9).
+- Keep backend ID `kagi` stable and existing desktop checkout links intact. Source
+  changes do not migrate an installation, change backend settings or restart gateways.
 
-### 2. Native extraction and client foundation
-Implement v1 extraction with offline test-first slices and actual Hermes loader/dispatcher checks. Cover batch limits, partial failures, URL mapping, timeouts, malformed responses, and content budgets. Do not label it implemented until the standard tool route is exercised. Run an explicitly approved live extraction test before recommending activation.
+## Approved release decisions
 
-### 3. Full search API features
-Implement specialized workflows and advanced controls behind an explicit tool. Reuse the client and default native route, without changing the generic Hermes tool schema. Include supported request fields and useful response groups from the current OpenAPI, account setting inheritance guidance, and paid extraction controls. Validate specialized responses and real tool registration.
+- MIT license.
+- Initial catalogue release is search-only; planned tools are not implemented merely
+  because they are on the roadmap.
+- Manual release submission with owner approval; upstream maintainers review every
+  exact-SHA catalogue pin. See [#10](https://github.com/zchrykng/hermes-plugin-kagi/issues/10)
+  and [#11](https://github.com/zchrykng/hermes-plugin-kagi/issues/11).
+- Active legacy migration is approved after tests, with backup/rollback. Paid smoke
+  tests require separate approval.
+- No self-updater, automatic catalogue PRs on each push, or automatic upstream merge.
 
-### 4. Remaining useful APIs
-Implement enrichment, summarization, FastGPT and Small Web incrementally, each with its own contract/auth review, unit tests, fixtures clearly labeled as fixtures, and separately approved live smoke test. Document unavailable/deprecated operations rather than promising unsupported behavior.
+## Architectural and safety invariants
 
-### 5. Release readiness
-Provide packaging, CI, supported Hermes-version checks, migration/rollback instructions, profile-safe setup, per-capability configuration, and clear cost/privacy guidance. Publishing a repository or catalog listing is a separate approval step.
+1. Use public Hermes registration/provider APIs, scoped secrets and documented
+   nonsecret settings conventions. Availability checks remain read-only and
+   network-free; served profiles must not borrow launch-profile credentials.
+2. Check current contract, API version, authentication, entitlement and cost per
+   product. Kagi's API portal includes products absent from its v1 OpenAPI bundle;
+   do not assume a shared authentication scheme across all products.
+3. Bound requests/responses, sanitize errors and redact observability. Never log
+   keys or sensitive bodies. Socket timeouts are not total elapsed-time deadlines.
+4. No unrequested paid retries, pagination, extraction, summarization or answer
+   chaining. Additional operations must be explicit with cost/data disclosures.
+5. Apply Hermes URL/security policy to remote extraction and summarization. Uploading
+   supplied text is a separate disclosure; generated summaries/answers are not verbatim
+   extracted pages. Preserve useful metadata and citations.
+6. Implementing a capability must not change the user's backend selection. Verify
+   mixed provider/tool registration through the real loader before relying on it.
+7. Offline fixtures, loader/dispatcher tests, managed installation, live requests and
+   billing are distinct evidence. Require separate approval before paid API calls.
 
-## Safety, cost and observability
-- No automatic paid retries, pagination, search-time extraction, summarization or FastGPT chaining. Require explicit tool options/requests for additional work.
-- Apply Hermes URL/security policy to remote extraction and summarization; uploading user text is a separate data disclosure, not ordinary search.
-- Summaries and FastGPT answers must remain explicitly labeled generated content; never represent them as verbatim extracted pages.
-- Never log keys or raw sensitive request/response bodies. Include safe provider identity, operation, cache status, duration and trace identifiers where available to verify routing without guessing from results.
-- Define timeouts, maximum pages/URLs, response-size caps and per-operation error behavior. Preserve partial successes where the API supports them.
-- Credential storage stays in profile secret storage; nonsecret settings use Hermes config commands. Inspect provider config conventions before selecting a namespace.
-- Offline tests cannot establish live endpoint availability, billing behavior or account permissions. Keep those claims separate.
+## Out of scope
 
-## Out of scope unless Kagi exposes a documented API
-Browser scraping of authenticated Kagi products, account/billing/key administration, browser extensions and Orion management. Do not invent Assistant, translation, or other product endpoints. Revisit scope when official APIs are published.
+Authenticated product scraping, account/billing/key administration, Orion/browser
+extension management, and invented Assistant/translation endpoints. Revisit through
+an explicit issue when Kagi publishes a relevant official API.
 
-## Sources
-- Hermes provider contract: https://hermes-agent.nousresearch.com/docs/developer-guide/web-search-provider-plugin
-- Hermes plugin lifecycle: https://hermes-agent.nousresearch.com/docs/user-guide/features/plugins
-- Kagi API inventory: https://help.kagi.com/kagi/api/overview.html
-- v1 API and OpenAPI: https://kagi.com/api/docs and https://kagi.com/api/docs/_bundle/openapi.json
-- Enrichment: https://help.kagi.com/kagi/api/enrich.html
-- Summarizer: https://help.kagi.com/kagi/api/summarizer.html
-- FastGPT: https://help.kagi.com/kagi/api/fastgpt.html
-- Small Web: https://help.kagi.com/kagi/api/smallweb.html
-- Keys and pricing: https://kagi.com/api/keys and https://kagi.com/api/pricing
+## Technical references
+
+- [Hermes provider contract](https://hermes-agent.nousresearch.com/docs/developer-guide/web-search-provider-plugin)
+- [Hermes plugin development](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins)
+- [Catalogue submission](https://hermes-agent.nousresearch.com/docs/developer-guide/plugins/catalog-submission)
+- [Kagi API inventory](https://help.kagi.com/kagi/api/overview.html)
+- [Kagi API reference](https://kagi.com/api/docs)
+- [Kagi OpenAPI](https://kagi.com/api/docs/_bundle/openapi.json)
+
+Per-feature implementation details and current status belong in the linked GitHub
+issues, not a parallel plan in this document.
